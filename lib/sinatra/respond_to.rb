@@ -26,7 +26,7 @@ module Sinatra
       app.helpers RespondTo::Helpers
 
       app.set :default_charset, 'utf-8'
-      app.set :default_content, lambda {|request| :html}
+      app.set :default_content, :html
       app.set :assume_xhr_is_js, true
 
       # We remove the trailing extension so routes
