@@ -26,7 +26,7 @@ module Sinatra
       app.helpers RespondTo::Helpers
 
       app.set :default_charset, 'utf-8'
-      app.set :default_content, :html
+      app.set :default_content, lambda {|request| :html}
       app.set :assume_xhr_is_js, true
 
       # We remove the trailing extension so routes
@@ -49,7 +49,7 @@ module Sinatra
           else
             request.path_info.sub! %r{\.([^\./]+)$}, ''
 
-            format request.xhr? && options.assume_xhr_is_js? ? :js : $1 || options.default_content
+            format request.xhr? && options.assume_xhr_is_js? ? :js : $1 || options.default_content(request)
           end
           charset options.default_charset if Sinatra::RespondTo::TEXT_MIME_TYPES.include? format
         end
