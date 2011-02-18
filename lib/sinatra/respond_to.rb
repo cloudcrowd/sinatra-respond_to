@@ -42,7 +42,10 @@ module Sinatra
           else
             request.path_info.sub! %r{\.([^\./]+)$}, ''
 
-            format request.xhr? && options.assume_xhr_is_js? ? :js : $1 || options.default_content
+            _format   = options.assume_xhr_is_js? ? :js : $1
+            _format ||= options.default_content.kind_of?(Proc) ? options.default_content(request) : options.default_content
+
+            format _format
           end
         end
       end
