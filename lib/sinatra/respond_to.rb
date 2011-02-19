@@ -42,8 +42,15 @@ module Sinatra
           else
             request.path_info.sub! %r{\.([^\./]+)$}, ''
 
-            _format   = options.assume_xhr_is_js? ? :js : $1
-            _format ||= options.default_content.kind_of?(Proc) ? options.default_content(request) : options.default_content
+            # Thanks to Sinatra, users can call:
+            #
+            #    set :default_content, :foo
+            #    set :default_content, proc { :foo }
+            #    set :default_content, proc { |bar| :foo }
+            #
+            # And get the same result from options.default_content(request).
+            _format   = options.assume_xhr_is_js? ? :js : $1 if request.xhr?
+            _format ||= options.default_content(request)
 
             format _format
           end
