@@ -16,16 +16,9 @@ module Sinatra
       def code; 500 end
     end
 
-    TEXT_MIME_TYPES = [:txt, :html, :js, :json, :xml, :rss, :atom, :css, :asm, :c, :cc, :conf,
-                       :csv, :cxx, :diff, :dtd, :f, :f77, :f90, :for, :gemspec, :h, :hh, :htm,
-                       :log, :mathml, :mml, :p, :pas, :pl, :pm, :py, :rake, :rb, :rdf, :rtf, :ru,
-                       :s, :sgm, :sgml, :sh, :svg, :svgz, :text, :wsdl, :xhtml, :xsl, :xslt, :yaml,
-                       :yml, :ics]
-
     def self.registered(app)
       app.helpers RespondTo::Helpers
 
-      app.set :default_charset, 'utf-8'
       app.set :default_content, :html
       app.set :assume_xhr_is_js, true
 
@@ -49,9 +42,18 @@ module Sinatra
           else
             request.path_info.sub! %r{\.([^\./]+)$}, ''
 
-            format request.xhr? && options.assume_xhr_is_js? ? :js : $1 || options.default_content(request)
+            # Thanks to Sinatra, users can call:
+            #
+            #    set :default_content, :foo
+            #    set :default_content, proc { :foo }
+            #    set :default_content, proc { |bar| :foo }
+            #
+            # And get the same result from options.default_content(request).
+            _format   = options.assume_xhr_is_js? ? :js : $1 if request.xhr?
+            _format ||= options.default_content(request)
+
+            format _format
           end
-          charset options.default_charset if Sinatra::RespondTo::TEXT_MIME_TYPES.include? format
         end
       end
 
@@ -96,7 +98,7 @@ module Sinatra
           layout = case engine
                    when 'haml' then "!!!\n%html\n  %body= yield"
                    when 'erb' then "<html>\n  <body>\n    <%= yield %>\n  </body>\n</html>"
-                   when 'builder' then ::Sinatra::VERSION =~ /^1.0/ ? "xml << yield" : "builder do |xml|\n  xml << yield\nend"
+                   when 'builder' then "xml << yield"
                    end
 
           layout = "<small>app.#{format}.#{engine}</small>\n<pre>#{escape_html(layout)}</pre>"
@@ -132,31 +134,20 @@ module Sinatra
       end
 
       app.class_eval do
-        private
-          # Changes in 1.0 Sinatra reuse render for layout so we store
-          # the original value to tell us if this is an automatic attempt
-          # to do a layout call.  If it is, it might fail with Errno::ENOENT
-          # and we want to pass that back to sinatra since it isn't a MissingTemplate
-          # error
-          def render_with_format(*args, &block)
-            assumed_layout = args[1] == :layout
-            args[1] = "#{args[1]}.#{format}".to_sym if args[1].is_a?(::Symbol)
-            render_without_format *args, &block
-          rescue Errno::ENOENT => e
-            raise MissingTemplate, "#{args[1]}.#{args[0]}" unless assumed_layout
-            raise e
-          end
-          alias_method :render_without_format, :render
-          alias_method :render, :render_with_format
-
-          if ::Sinatra::VERSION =~ /^0\.9/
-            def lookup_layout_with_format(*args)
-              args[1] = "#{args[1]}.#{format}".to_sym if args[1].is_a?(::Symbol)
-              lookup_layout_without_format *args
-            end
-            alias_method :lookup_layout_without_format, :lookup_layout
-            alias_method :lookup_layout, :lookup_layout_with_format
-          end
+        # Changes in 1.0 Sinatra reuse render for layout so we store the
+        # original value to tell us if this is an automatic attempt to do a
+        # layout call.  If it is, it might fail with Errno::ENOENT and we want
+        # to pass that back to sinatra since it isn't a MissingTemplate error
+        alias :render_without_format :render
+        def render(*args, &block)
+          assumed_layout = args[1] == :layout
+          args[1] = "#{args[1]}.#{format}".to_sym if args[1].is_a?(::Symbol)
+          render_without_format *args, &block
+        rescue Errno::ENOENT => e
+          raise MissingTemplate, "#{args[1]}.#{args[0]}" unless assumed_layout
+          raise e
+        end
+        private :render
       end
     end
 
@@ -166,27 +157,21 @@ module Sinatra
       # doesn't have to do a reverse lookup on the header
       def self.included(klass)
         klass.class_eval do
-          def content_type_with_save(*args)
-            content_type_without_save *args
+          alias :content_type_without_save :content_type
+          def content_type(*args)
             @_format = args.first.to_sym
-            response['Content-Type']
+            content_type_without_save *args
           end
-          alias_method :content_type_without_save, :content_type
-          alias_method :content_type, :content_type_with_save
-        end if ::Sinatra::VERSION =~ /^1.0/
-      end
-
-      def self.mime_type(sym)
-        ::Sinatra::Base.respond_to?(:media_type) && ::Sinatra::Base.media_type(sym) || ::Sinatra::Base.mime_type(sym)
+        end
       end
 
       def format(val=nil)
         unless val.nil?
-          mime_type = ::Sinatra::RespondTo::Helpers.mime_type(val)
+          mime_type = ::Sinatra::Base.mime_type(val)
           fail "Unknown media type #{val}\nTry registering the extension with a mime type" if mime_type.nil?
 
           @_format = val.to_sym
-          response['Content-Type'].sub!(/^[^;]+/, mime_type)
+          response['Content-Type'] ? response['Content-Type'].sub!(/^[^;]+/, mime_type) : content_type(@_format)
         end
 
         @_format
@@ -216,7 +201,7 @@ module Sinatra
       def respond_to(&block)
         wants = {}
         def wants.method_missing(type, *args, &handler)
-          ::Sinatra::Base.send(:fail, "Unknown media type for respond_to: #{type}\nTry registering the extension with a mime type") if ::Sinatra::RespondTo::Helpers.mime_type(type).nil?
+          ::Sinatra::Base.send(:fail, "Unknown media type for respond_to: #{type}\nTry registering the extension with a mime type") if ::Sinatra::Base.mime_type(type).nil?
           self[type] = handler
         end
 

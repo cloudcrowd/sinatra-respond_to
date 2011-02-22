@@ -1,18 +1,19 @@
-= sinatra-respond_to
+# sinatra-respond\_to
 
-* http://www.github.com/cehoffman/sinatra-respond_to
+* http://www.github.com/cehoffman/sinatra-respond\_to
 
-== DESCRIPTION:
+## DESCRIPTION:
 
-A respond_to style Rails block for baked-in web service support in Sinatra
+A respond\_to style Rails block for baked-in web service support in Sinatra
 
-== FEATURES/PROBLEMS:
+## FEATURES/PROBLEMS:
 
-* Handles setting charset for appropriate types
 * Handles setting the content type depending on what is being served
 * Automatically can adjust XMLHttpRequests to return Javascript
 
-== SYNOPSIS:
+## SYNOPSIS:
+
+Allows urls of the form **/posts**, **/posts.rss**, and **/posts?format=atom** to route to the same Sinatra block and format specific respond\_to block.
 
     require 'sinatra'
     require 'sinatra/respond_to'
@@ -50,7 +51,7 @@ A respond_to style Rails block for baked-in web service support in Sinatra
       end
     end
 
-To change the character set of the response, there is a <tt>charset</tt> helper.  For example
+To change the character set of the response, there is a `charset` helper.  For example
 
     get '/iso-8859-1' do
       charset 'iso-8859-1'
@@ -64,40 +65,36 @@ To change the character set of the response, there is a <tt>charset</tt> helper.
       end
     end
 
-== CONFIGURATION:
+## CONFIGURATION:
 
-There a few options available for configuring the default behavior of respond_to using Sinatra's
-<tt>set</tt> utility.
+There a few options available for configuring the default behavior of respond\_to using Sinatra's `set` utility.
 
-* <tt>default\_charset - utf-8</tt>
-    Assumes all text documents are encoded using this character set.
-    This can be overridden within the respond_to block for the appropriate format
-* <tt>default\_content - :html</tt>
-    When a user vists a url without an extension, for example /post this will be
-    the assumed content to serve first.  Expects a symbol as used in setting content_type.
-* <tt>assume\_xhr\_is\_js - true</tt>
-    To avoid headaches with accept headers, and appending .js to urls, this will
-    cause the default format for all XmlHttpRequests to be classified as wanting Javascript
-    in the response.
+* **default\_content - :html**
+      When a user vists a url without an extension, for example /post this will be
+      the assumed content to serve first.  Expects a symbol as used in setting content_type.
+* **assume\_xhr\_is\_js - true**
+      To avoid headaches with accept headers, and appending .js to urls, this will
+      cause the default format for all XmlHttpRequests to be classified as wanting Javascript
+      in the response.
 
-== REQUIREMENTS:
+## REQUIREMENTS:
 
-* sinatra 0.9.4 - 1.0
+* sinatra 1.1
 
-== INSTALL:
+If you would like to use Sinatra 1.0, use version `0.5.0`.
 
-* gem install sinatra-respond_to
+## INSTALL:
 
-== CAVEATS:
-Due to the way respond\_to works, all incoming requests have the extension striped from the request.path\_info.
-This causes routes like the following to fail.
+    $ gem install sinatra-respond_to
+
+## CAVEATS:
+Due to the way respond\_to works, all incoming requests have the extension striped from the request.path\_info. This causes routes like the following to fail.
 
     get '/style.css' do
-      content_type :css, :charset => 'utf-8'
       sass :style   # => renders views/style.sass
     end
 
-They need to be changed to the following.  Note that you no longer have to set the content\_type or charset.
+They need to be changed to the following.
 
     get '/style' do
       sass :style   # => renders views/style.css.sass
@@ -109,16 +106,20 @@ If you want to ensure the route only gets called for css requests try this.  Thi
       sass :style
     end
 
-== DEVELOPERS:
+## DEVELOPERS:
 
 After checking out the source, run:
 
-  $ rake newb
+    $ bundle install
+    $ rake spec
 
-This task will install any missing dependencies, run the tests/specs,
-and generate the RDoc.
+This task will install any missing dependencies, run the tests/specs, and generate the RDoc.
 
-== LICENSE:
+## Contributors
+
+* [Ryan Schenk](http://github.com/rschenk/)
+
+## LICENSE:
 
 (The MIT License)
 
